@@ -5,8 +5,11 @@ const qs = require("querystring");
 const sn = require("sanitize-html");
 const app = express();
 
-let pageTitle = "";
-const control = `
+app.get('/pages/:pageTitle', (req, res) => {
+    const pageTitle = req.params.pageTitle;
+    let topicList = [];
+    
+    const control = `
             <p>
                 <a href="/create">create</a>
                 <a href="/update">update</a>
@@ -16,21 +19,6 @@ const control = `
                 </form>
             </p>
             `;
-
-app.get('/pages/:pageTitle', (req, res) => {
-    pageTitle = req.params.pageTitle;
-    let topicList = [];
-    
-    /*const control = `
-            <p>
-                <a href="/create">create</a>
-                <a href="/update">update</a>
-                <form action="/delete" method="post">
-                    <input type="hidden" name="id" value="${pageTitle}">
-                    <input type="submit" value="delete">
-                </form>
-            </p>
-            `;*/
     
     database.query('SELECT * FROM topic', (error, topics) => {
         if (error) {
@@ -56,8 +44,19 @@ app.get('/pages/:pageTitle', (req, res) => {
 });
 
 app.get('/create', (req, res) => {
-    pageTitle = "Create Index";
+    const pageTitle = "Create Index";
     let topicList = [];
+    
+    const control = `
+            <p>
+                <a href="/create">create</a>
+                <a href="/update">update</a>
+                <form action="/delete" method="post">
+                    <input type="hidden" name="id" value="${pageTitle}">
+                    <input type="submit" value="delete">
+                </form>
+            </p>
+            `;
     
     database.query('SELECT * FROM topic', (error, topics) => {
         if (error) {
@@ -143,6 +142,18 @@ app.post('/create', (req, res) => {
 
 app.get('/update', (req, res) => {
     let topicList = [];
+    const pageTitle = "Update Index";
+    
+    const control = `
+            <p>
+                <a href="/create">create</a>
+                <a href="/update">update</a>
+                <form action="/delete" method="post">
+                    <input type="hidden" name="id" value="${pageTitle}">
+                    <input type="submit" value="delete">
+                </form>
+            </p>
+            `;
     
     database.query('SELECT * FROM topic', (error, topics) => {
         if (error) {
@@ -161,12 +172,12 @@ app.get('/update', (req, res) => {
                             throw error;
                         } else{
                             const description = `
-                                    <form action="/process_update" method="post">
+                                    <form action="/update" method="post">
                                         <p>
-                                            <input type="text" name="id" placeholder="Update Title">
+                                            <input type="text" name="upTitle" placeholder="Update Title">
                                         </p>
                                         <p>
-                                            <input type="text" name="textline" value="${data1[0].title}" readonly>
+                                            <input type="text" name="oldTitle" value="${data1[0].title}" readonly>
                                         </p>
                                         <p>
                                             <textarea name="description">${data1[0].description}</textarea>
@@ -180,18 +191,66 @@ app.get('/update', (req, res) => {
                                     </form>
                                     `;
                             
-                            response.writeHead(200);
-                            response.end(tp.html(data1[0].title, topicList, description, options));
+                            res.send(tp.html(data1[0].title, topicList, description, control));
                         }
                     });
                 }
             });
         }
     });
-})
+});
+
+app.post('/update', (req, res) => {
+    let updateBody = '';
+    
+    req.on('data', (data) => {
+        updateBody += data;
+    });
+    req.on('end', () => {
+        const post = qs.parse(updateBody);
+        const newTitle = post.upTitle;
+        const oldTitle = post.oldTitle;
+        const description = post.description;
+        const authorName = post.authors;
+        
+        database.query(`SELECT id FROM author WHERE name=?`, [authorName], (error, data) => {
+            if (error) {
+                throw error;
+            } else{
+                database.query(`UPDATE topic SET title=?, description=?, author_id=? WHERE title=?`, [newTitle, description, data[0].id, oldTitle], (error) => {
+                    if (error) {
+                        throw error;
+                    } else{
+                        res.redirect(`/pages/${newTitle}`);
+                    }
+                });
+            }
+        });
+    });
+});
+
+app.post('/delete', (req, res) => {
+    let deleteBody = '';
+    
+    req.on('data', (data) => {
+        deleteBody += data;
+    });
+    req.on('end', () => {
+        let post = qs.parse(deleteBody);
+        let title = post.id;
+        
+        database.query(`DELETE FROM topic WHERE title=?`, [title], (error) => {
+            if (error) {
+                throw error;
+            } else{
+                res.redirect('/');
+            }
+        });
+    });
+});
 
 app.get('/', (req, res) => {
-    pageTitle = "Welcome";
+    const pageTitle = "Welcome";
     let topicList = [];
     const description = "Hello Node.js!";
     
