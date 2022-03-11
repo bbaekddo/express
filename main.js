@@ -4,10 +4,12 @@ const database = require('./lib/db');
 const sn = require('sanitize-html');
 const bodyParser = require("body-parser");
 const comp = require('compression');
+const {static} = require("express");
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: false}));
 app.use(comp());
+app.use(static('public'));
 
 app.get('/pages/:pageTitle', (req, res) => {
     const pageTitle = req.params.pageTitle;
@@ -235,6 +237,15 @@ app.get('/', (req, res) => {
             res.send(tp.html(pageTitle, topicList, description, `<p><a href="/create">create</a></p>`));
         }
     });
+});
+
+app.use(function(req, res, next) {
+    res.status(404).send("Sorry can't find that!");
+});
+
+app.use(function(err, req, res, next) {
+    console.error(err.stack);
+    res.status(500).send("Something is broken!");
 });
 
 app.listen(3000, () => {
