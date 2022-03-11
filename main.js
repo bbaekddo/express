@@ -1,9 +1,12 @@
 const express = require('express');
 const tp = require('./lib/template');
-const database = require("./lib/db");
-const qs = require("querystring");
-const sn = require("sanitize-html");
+const database = require('./lib/db');
+const qs = require('querystring');
+const sn = require('sanitize-html');
+const bodyParser = require("body-parser");
 const app = express();
+
+app.use(bodyParser.urlencoded({ extended: false}));
 
 app.get('/pages/:pageTitle', (req, res) => {
     const pageTitle = req.params.pageTitle;
@@ -12,7 +15,7 @@ app.get('/pages/:pageTitle', (req, res) => {
     const control = `
             <p>
                 <a href="/create">create</a>
-                <a href="/update">update</a>
+                <a href="/pages/${pageTitle}/update">update</a>
                 <form action="/delete" method="post">
                     <input type="hidden" name="id" value="${pageTitle}">
                     <input type="submit" value="delete">
@@ -47,16 +50,7 @@ app.get('/create', (req, res) => {
     const pageTitle = "Create Index";
     let topicList = [];
     
-    const control = `
-            <p>
-                <a href="/create">create</a>
-                <a href="/update">update</a>
-                <form action="/delete" method="post">
-                    <input type="hidden" name="id" value="${pageTitle}">
-                    <input type="submit" value="delete">
-                </form>
-            </p>
-            `;
+    const control = ``;
     
     database.query('SELECT * FROM topic', (error, topics) => {
         if (error) {
@@ -102,52 +96,44 @@ app.get('/create', (req, res) => {
 });
 
 app.post('/create', (req, res) => {
-    let createBody = '';
     
-    req.on('data', (data) => {
-        createBody += data;
+    const title = req.body.newTitle;
+    const saniDesc = sn(req.body.description, {
+        allowedTags : ['i', 'b']
     });
-    console.log(createBody);
-    req.on('end', () => {
-        const post = qs.parse(createBody);
-        const title = post.newTitle;
-        const saniDesc = sn(post.description, {
-            allowedTags : ['i', 'b']
-        });
-        const authorName = post.authors;
-        let authorId;
-        
-        database.query(`SELECT id, name FROM author`, (error, authors) => {
-            if (error) {
-                throw error;
-            } else {
-                for (const list of authors) {
-                    if (list.name === authorName) {
-                        authorId = list.id;
-                    }
+    const authorName = req.body.authors;
+    let authorId;
+    
+    database.query(`SELECT id, name FROM author`, (error, authors) => {
+        if (error) {
+            throw error;
+        } else {
+            for (const list of authors) {
+                if (list.name === authorName) {
+                    authorId = list.id;
                 }
-                
-                database.query(`INSERT INTO topic (title, description, created, author_id) VALUES (?, ?, NOW(), ?)`,
-                    [title, saniDesc, authorId], (error) => {
-                        if (error){
-                            throw error;
-                        } else{
-                            res.redirect(`/pages/${title}`);
-                        }
-                    });
             }
-        });
+            
+            database.query(`INSERT INTO topic (title, description, created, author_id) VALUES (?, ?, NOW(), ?)`,
+                [title, saniDesc, authorId], (error) => {
+                    if (error){
+                        throw error;
+                    } else{
+                        res.redirect(`/pages/${title}`);
+                    }
+                });
+        }
     });
 });
 
-app.get('/update', (req, res) => {
+app.get('/pages/:pageTitle/update', (req, res) => {
     let topicList = [];
-    const pageTitle = "Update Index";
+    let pageTitle = req.params.pageTitle;
+    console.log(pageTitle);
     
     const control = `
             <p>
                 <a href="/create">create</a>
-                <a href="/update">update</a>
                 <form action="/delete" method="post">
                     <input type="hidden" name="id" value="${pageTitle}">
                     <input type="submit" value="delete">
@@ -167,6 +153,7 @@ app.get('/update', (req, res) => {
                 if (error) {
                     throw error;
                 } else{
+                    console.log(data1);
                     database.query(`SELECT * FROM author`, (error, data2) => {
                         if (error) {
                             throw error;
@@ -200,52 +187,36 @@ app.get('/update', (req, res) => {
     });
 });
 
-app.post('/update', (req, res) => {
-    let updateBody = '';
+app.post('/pages/:pageTitle/update', (req, res) => {
+    const newTitle = req.body.upTitle;
+    const oldTitle = req.body.oldTitle;
+    const description = req.body.description;
+    const authorName = req.body.authors;
     
-    req.on('data', (data) => {
-        updateBody += data;
-    });
-    req.on('end', () => {
-        const post = qs.parse(updateBody);
-        const newTitle = post.upTitle;
-        const oldTitle = post.oldTitle;
-        const description = post.description;
-        const authorName = post.authors;
-        
-        database.query(`SELECT id FROM author WHERE name=?`, [authorName], (error, data) => {
-            if (error) {
-                throw error;
-            } else{
-                database.query(`UPDATE topic SET title=?, description=?, author_id=? WHERE title=?`, [newTitle, description, data[0].id, oldTitle], (error) => {
-                    if (error) {
-                        throw error;
-                    } else{
-                        res.redirect(`/pages/${newTitle}`);
-                    }
-                });
-            }
-        });
+    database.query(`SELECT id FROM author WHERE name=?`, [authorName], (error, data) => {
+        if (error) {
+            throw error;
+        } else{
+            database.query(`UPDATE topic SET title=?, description=?, author_id=? WHERE title=?`, [newTitle, description, data[0].id, oldTitle], (error) => {
+                if (error) {
+                    throw error;
+                } else{
+                    res.redirect(`/pages/${newTitle}`);
+                }
+            });
+        }
     });
 });
 
 app.post('/delete', (req, res) => {
-    let deleteBody = '';
+    let title = req.body.id;
     
-    req.on('data', (data) => {
-        deleteBody += data;
-    });
-    req.on('end', () => {
-        let post = qs.parse(deleteBody);
-        let title = post.id;
-        
-        database.query(`DELETE FROM topic WHERE title=?`, [title], (error) => {
-            if (error) {
-                throw error;
-            } else{
-                res.redirect('/');
-            }
-        });
+    database.query(`DELETE FROM topic WHERE title=?`, [title], (error) => {
+        if (error) {
+            throw error;
+        } else{
+            res.redirect('/');
+        }
     });
 });
 
