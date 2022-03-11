@@ -1,12 +1,13 @@
 const express = require('express');
 const tp = require('./lib/template');
 const database = require('./lib/db');
-const qs = require('querystring');
 const sn = require('sanitize-html');
 const bodyParser = require("body-parser");
+const comp = require('compression');
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: false}));
+app.use(comp());
 
 app.get('/pages/:pageTitle', (req, res) => {
     const pageTitle = req.params.pageTitle;
@@ -129,7 +130,6 @@ app.post('/create', (req, res) => {
 app.get('/pages/:pageTitle/update', (req, res) => {
     let topicList = [];
     let pageTitle = req.params.pageTitle;
-    console.log(pageTitle);
     
     const control = `
             <p>
@@ -153,13 +153,12 @@ app.get('/pages/:pageTitle/update', (req, res) => {
                 if (error) {
                     throw error;
                 } else{
-                    console.log(data1);
                     database.query(`SELECT * FROM author`, (error, data2) => {
                         if (error) {
                             throw error;
                         } else{
                             const description = `
-                                    <form action="/update" method="post">
+                                    <form action="/pages/${pageTitle}/update" method="post">
                                         <p>
                                             <input type="text" name="upTitle" placeholder="Update Title">
                                         </p>
