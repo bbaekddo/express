@@ -4,41 +4,21 @@ const {static} = require("express");
 const template = require('./lib/template');
 const topicRouter = require('./routes/topic');
 const pageRouter = require('./routes/page');
-const loginRouter = require('./routes/login');
 const database = require('./lib/db');
 const bodyParser = require("body-parser");
-const cookie = require('cookie');
 const comp = require('compression');
 
 app.use(bodyParser.urlencoded({ extended: false}));
 app.use(comp());
 app.use(static('public'));
-// app.use('/topics', topicRouter);
-// app.use('/pages', pageRouter);
-app.use('/login', loginRouter);
-
-// Login check
-const loginBtn = `<a href="/login">login</a>`;
-const logoutBtn = `<a href="/logout">logout</a>`;
-function authIsOwner(req, res) {
-    let isOwner = false;
-    let cookies = {};
-    if (req.headers.cookie) {
-        cookies = cookie.parse(req.headers.cookie);
-    }
-    if (cookies.email === 'guest1' && cookies.password === 'password1') {
-        isOwner = true;
-    }
-    
-    return isOwner;
-}
+app.use('/topics', topicRouter);
+app.use('/pages', pageRouter);
 
 // index page
 app.get('/', (req, res) => {
     const pageTitle = "Welcome";
     let topicList = [];
     const description = "Hello Node.js!";
-    const isOwner = authIsOwner(req, res);
     
     database.query('SELECT * FROM topic', (error, topics) => {
         if (error) {
@@ -48,11 +28,7 @@ app.get('/', (req, res) => {
                 topicList.push(topics[i].title);
             }
             
-            if (isOwner === true) {
-                res.send(template.html(pageTitle, topicList, description, `<p><a href="/topics/create">create</a></p>`, logoutBtn));
-            } else{
-                res.send(template.html(pageTitle, topicList, description, `<p><a href="/topics/create">create</a></p>`, loginBtn));
-            }
+            res.send(template.html(pageTitle, topicList, description, `<p><a href="/topics/create">create</a></p>`));
         }
     });
 });
