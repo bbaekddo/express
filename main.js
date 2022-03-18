@@ -2,40 +2,43 @@ const express = require('express');
 const app = express();
 const {static} = require("express");
 const template = require('./lib/template');
-const topicRouter = require('./routes/topic');
+const session = require("express-session");
+const fileStore = require('session-file-store')(session);
+const authRouter = require('./routes/auth');
 const pageRouter = require('./routes/page');
-const loginRouter = require('./routes/login');
 const database = require('./lib/db');
 const bodyParser = require("body-parser");
-const cookieParser = require('cookie-parser');
 const comp = require('compression');
 
 app.use(bodyParser.urlencoded({ extended: false}));
 app.use(comp());
 app.use(static('public'));
-app.use(cookieParser());
-app.use('/topics', topicRouter);
-app.use('/pages', pageRouter);
-app.use('/login', loginRouter);
+app.use(session({
+    secret: 'basck!$@',
+    resave: false,
+    saveUninitialized: true,
+    store: new fileStore()
+}));
 
-const loginBtn = `<a href="/login">login</a>`;
-const logoutBtn = `<a href="/login/out">logout</a>`;
-function checkAuth(req, res) {
-    let isAuth = false;
-    const cookies = req.cookies;
-    const email = cookies.emailCookie;
-    const password = cookies.passwordCookie;
-    if (email === 'guest1' && password === 'password1') {
-        isAuth = true;
-    }
-    return isAuth;
-}
+// 가장 나중에 호춣해야 하는 미들웨어
+app.use('/auth', authRouter);
+app.use('/pages', pageRouter);
+
+const loginBtn = `<a href="/auth/login">login</a>`;
+const logoutBtn = `<a href="/auth/logout">logout</a>`;
 
 // index page
 app.get('/', (req, res) => {
     const pageTitle = "Welcome";
     let topicList = [];
     const description = "Hello Node.js!";
+    let authUI = '';
+    
+    if (req.session.is_logined) {
+        authUI = `${req.session.nickname} | ${logoutBtn}`;
+    } else {
+        authUI = loginBtn;
+    }
     
     database.query('SELECT * FROM topic', (error, topics) => {
         if (error) {
@@ -45,11 +48,11 @@ app.get('/', (req, res) => {
                 topicList.push(topics[i].title);
             }
             
-            if (checkAuth(req, res)) {
-                res.send(template.html(pageTitle, topicList, description, `<p><a href="/topics/create">create</a></p>`, logoutBtn))
-            } else{
-                res.send(template.html(pageTitle, topicList, description, `<p><a href="/topics/create">create</a></p>`, loginBtn));
-            }
+            req.session.save(err => {
+                if (err) throw err;
+    
+                res.send(template.html(pageTitle, topicList, description, ``, authUI));
+            });
         }
     });
 });

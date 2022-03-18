@@ -1,3 +1,4 @@
+/*
 const express = require('express');
 const router = express.Router();
 const database = require("../lib/db");
@@ -130,3 +131,4 @@ router.post('/delete', (req, res) => {
 });
 
 module.exports = router;
+*/
