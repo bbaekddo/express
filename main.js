@@ -4,15 +4,32 @@ const {static} = require("express");
 const template = require('./lib/template');
 const topicRouter = require('./routes/topic');
 const pageRouter = require('./routes/page');
+const loginRouter = require('./routes/login');
 const database = require('./lib/db');
 const bodyParser = require("body-parser");
+const cookieParser = require('cookie-parser');
 const comp = require('compression');
 
 app.use(bodyParser.urlencoded({ extended: false}));
 app.use(comp());
 app.use(static('public'));
+app.use(cookieParser());
 app.use('/topics', topicRouter);
 app.use('/pages', pageRouter);
+app.use('/login', loginRouter);
+
+const loginBtn = `<a href="/login">login</a>`;
+const logoutBtn = `<a href="/login/out">logout</a>`;
+function checkAuth(req, res) {
+    let isAuth = false;
+    const cookies = req.cookies;
+    const email = cookies.emailCookie;
+    const password = cookies.passwordCookie;
+    if (email === 'guest1' && password === 'password1') {
+        isAuth = true;
+    }
+    return isAuth;
+}
 
 // index page
 app.get('/', (req, res) => {
@@ -28,7 +45,11 @@ app.get('/', (req, res) => {
                 topicList.push(topics[i].title);
             }
             
-            res.send(template.html(pageTitle, topicList, description, `<p><a href="/topics/create">create</a></p>`));
+            if (checkAuth(req, res)) {
+                res.send(template.html(pageTitle, topicList, description, `<p><a href="/topics/create">create</a></p>`, logoutBtn))
+            } else{
+                res.send(template.html(pageTitle, topicList, description, `<p><a href="/topics/create">create</a></p>`, loginBtn));
+            }
         }
     });
 });
